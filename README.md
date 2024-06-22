@@ -32,10 +32,10 @@ The Digital Weight V4 represents the latest iteration of our open source fitness
 - **Firmware**: The firmware has been rewritten from scratch for V4, resulting in the absence of some base features critical for safety and convenience.
 - **General safety**: The device has not yet fully enabled all watchdog, movement monitoring, and control limitations to ensure the safety of the user. Test and use with caution.
 
-## V5 Next Steps
-
-Squash bugs and known limitations
-
 ## V4 Image Preview
 
 ![V4 Render Angle](cad/v4/images/render_angle.png)
+
+## V5 Next Steps
+
+Squash bugs and known limitations
