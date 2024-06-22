@@ -1,4 +1,4 @@
-# digital_weight# Digital Weight: Latest Version 4 (V4) - Overview
+# Digital Weight: Latest Version 4 (V4) - Overview
 
 ## Release Date
 
