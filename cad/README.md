@@ -25,3 +25,5 @@ CAD files to build V4
 ## V4 Image Preview
 
 ![V4 Render Angle](v4/images/render_angle.png)
+![V4 Render Angle](v4/images/render_side.png)
+![V4 Render Angle](v4/images/render_top.png)
