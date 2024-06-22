@@ -1,0 +1,14 @@
+{
+  "codename": "Number",
+  "ttf_path": "\\assets\\fonts\\FuturaStdCondensedLightObl.otf",
+  "bin_path": "\\assets\\fonts\\ui_font_Number.bin",
+  "c_path": "\\assets\\fonts\\ui_font_Number.c",
+  "cfg_path": "\\assets\\fonts\\ui_font_Number.fcfg",
+  "size": 66,
+  "bpp": 8,
+  "letters": 0,
+  "ranges": [],
+  "symbols": "1234567890:°",
+  "customparams": "--no-compress --no-prefilter",
+  "uploaded": false
+}

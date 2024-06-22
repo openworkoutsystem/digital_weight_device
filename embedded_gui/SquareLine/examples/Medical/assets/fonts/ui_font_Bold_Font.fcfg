@@ -1,0 +1,16 @@
+{
+  "codename": "Bold_Font",
+  "ttf_path": "\\assets\\fonts\\Montserrat-Bold.ttf",
+  "bin_path": "\\assets\\fonts\\ui_font_Bold_Font.bin",
+  "c_path": "\\assets\\fonts\\ui_font_Bold_Font.c",
+  "cfg_path": "\\assets\\fonts\\ui_font_Bold_Font.fcfg",
+  "size": 16,
+  "bpp": 8,
+  "letters": 0,
+  "ranges": [
+    "0x20-0x7f"
+  ],
+  "symbols": "",
+  "customparams": "--no-compress --no-prefilter",
+  "uploaded": false
+}
