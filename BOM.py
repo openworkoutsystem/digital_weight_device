@@ -26,9 +26,10 @@ def generate_bom(csv_file, output_md):
         "| Item Number | Part Name                       | Part Number | Quantity | Description                                    | Supplier         | Unit Price | Total Price | Purchase Link                          |",
         "|-------------|---------------------------------|-------------|----------|------------------------------------------------|------------------|------------|-------------|----------------------------------------|"
     ]
-    
+    idx = 1
     for item in items:
-        item_number = item['Item Number']
+        item_number = idx
+        idx += 1
         part_name = item['Part Name']
         part_number = item['Part Number']
         quantity = item['Quantity']
