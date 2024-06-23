@@ -8,6 +8,10 @@ June 2024, as demonstrated at open sauce SF
 
 The Digital Weight V4 represents the latest iteration of our open source fitness device. Working next towards V5 which will maintain the innovative and open spirit seen at Open Sauce. Version 4 introduces several enhancements and new features aimed at improving usability, safety, and performance.
 
+## V4 BOM
+
+[Bill of Materials](https://github.com/lunarmass/digital_weight_device/blob/main/BOM.md)
+
 ## V4 Features
 
 - **Dual Motor System**: Incorporates dual motors and controllers for enhanced performance.
