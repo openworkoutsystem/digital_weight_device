@@ -10,7 +10,7 @@ The Digital Weight V4 represents the latest iteration of our open source fitness
 
 ## V4 BOM
 
-[Bill of Materials](https://github.com/lunarmass/digital_weight_device/blob/main/BOM.md)
+[Bill of Materials](BOM.md)
 
 ## V4 Features
 
