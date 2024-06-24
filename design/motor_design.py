@@ -7,7 +7,7 @@ import math
 MAX_VOLTAGE_SYSTEM = 48  # Example max voltage of system
 MAX_CURRENT_SYSTEM = 50  # Example max current of system
 GEAR_RATIO = 4.6  # Example gear ratio
-SPOOL_RADIUS = 40 / 1000  # Example spool radius in meters
+SPOOL_RADIUS = 30 / 1000  # Example spool radius in meters
 IBYKV2NM = (3/2)/(math.sqrt(3)*(1/60)*2*math.pi)  # Conversion constant for motor torque
 IBYKV2NM = 11  # Conversion constant for motor torque
 MAX_MODULATION = 0.9  # Example maximum modulation of motor and controller
