@@ -6,8 +6,8 @@ import math
 # Constants
 MAX_VOLTAGE_SYSTEM = 48  # Example max voltage of system
 MAX_CURRENT_SYSTEM = 50  # Example max current of system
-GEAR_RATIO = 4.6  # Example gear ratio
-SPOOL_RADIUS = 30 / 1000  # Example spool radius in meters
+GEAR_RATIO = 3  # Example gear ratio
+SPOOL_RADIUS = 40 / 1000  # Example spool radius in meters
 IBYKV2NM = (3/2)/(math.sqrt(3)*(1/60)*2*math.pi)  # Conversion constant for motor torque
 IBYKV2NM = 11  # Conversion constant for motor torque
 MAX_MODULATION = 0.9  # Example maximum modulation of motor and controller
@@ -21,18 +21,18 @@ def calculate_motor_stats(motor_data):
     # Calculate linear force and speed without gear
     motor_data['Continuous Linear Force (N)'] = motor_data['Rated Torque at Max Continuous Current (Nm)'] / SPOOL_RADIUS
     motor_data['Peak Linear Force (N)'] = motor_data['Peak Torque at Max Current (Nm)'] / SPOOL_RADIUS
-    motor_data['Linear Speed (m/s)'] = (motor_data['No Load RPM'] * 2 * 3.14159 * SPOOL_RADIUS) / 60
+    motor_data['Linear Speed (m/s)'] = (motor_data['No Load RPM'] * 2 * math.pi * SPOOL_RADIUS) / 60
     motor_data['Linear Speed (ft/s)'] = motor_data['Linear Speed (m/s)'] * 3.28084
     motor_data['Continuous Linear Force (lb)'] = motor_data['Continuous Linear Force (N)'] * 0.224809
     motor_data['Peak Linear Force (lb)'] = motor_data['Peak Linear Force (N)'] * 0.224809
     
     # Calculate linear force and speed with gear
-    motor_data['Rated Torque at Max Continuous Current with Gear (Nm)'] = motor_data['Rated Torque at Max Continuous Current (Nm)'] * GEAR_RATIO
-    motor_data['Peak Torque at Max Current with Gear (Nm)'] = motor_data['Peak Torque at Max Current (Nm)'] * GEAR_RATIO
-    motor_data['No Load RPM with Gear'] = motor_data['No Load RPM'] / GEAR_RATIO
+    motor_data['Rated Torque at Max Continuous Current with Gear (Nm)'] = motor_data['Rated Torque at Max Continuous Current (Nm)'] * motor_data['gear ratio']
+    motor_data['Peak Torque at Max Current with Gear (Nm)'] = motor_data['Peak Torque at Max Current (Nm)'] * motor_data['gear ratio']
+    motor_data['No Load RPM with Gear'] = motor_data['No Load RPM'] / motor_data['gear ratio']
     motor_data['Continuous Linear Force with Gear (N)'] = motor_data['Rated Torque at Max Continuous Current with Gear (Nm)'] / SPOOL_RADIUS
     motor_data['Peak Linear Force with Gear (N)'] = motor_data['Peak Torque at Max Current with Gear (Nm)'] / SPOOL_RADIUS
-    motor_data['Linear Speed with Gear (m/s)'] = (motor_data['No Load RPM with Gear'] * 2 * 3.14159 * SPOOL_RADIUS) / 60
+    motor_data['Linear Speed with Gear (m/s)'] = (motor_data['No Load RPM with Gear'] * 2 * math.pi * SPOOL_RADIUS) / 60
     motor_data['Linear Speed with Gear (ft/s)'] = motor_data['Linear Speed with Gear (m/s)'] * 3.28084
     motor_data['Continuous Linear Force with Gear (lb)'] = motor_data['Continuous Linear Force with Gear (N)'] * 0.224809
     motor_data['Peak Linear Force with Gear (lb)'] = motor_data['Peak Linear Force with Gear (N)'] * 0.224809
@@ -47,6 +47,7 @@ def generate_markdown(motor_data):
         md_content += "| Characteristic | Value |\n"
         md_content += "|----------------|-------|\n"
         md_content += f"| Weight | {row['weight']} grams |\n"
+        md_content += f"| Gear Ratio | {row['gear ratio']} |\n"
         md_content += f"| KV Rating | {row['kv']} RPM/V |\n"
         md_content += f"| Max Current | {row['max current']} A |\n"
         md_content += f"| Max Voltage | {row['max voltage']} V |\n"
