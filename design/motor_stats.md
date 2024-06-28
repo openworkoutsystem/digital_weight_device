@@ -31,7 +31,7 @@
 
 | Characteristic | Value |
 |----------------|-------|
-| Weight | 900 grams |
+| Weight | 750 grams |
 | Gear Ratio | 5.5 |
 | KV Rating | 55 RPM/V |
 | Max Current | 60.0 A |
