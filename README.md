@@ -25,7 +25,7 @@ The ultra-compact BLDC motor-driven workout system is our core design focus, aim
 
 As an open-source project, we believe in the power of community and collaboration. By making our designs, code, and documentation freely available, we enable others to contribute to the project, helping to accelerate innovation and bring high-quality fitness solutions to more people. Our commitment to open source ensures transparency, adaptability, and continuous improvement.
 
-Hardware is hard. We know, like us, there are others with great ideas on how to improve their daily routines and PT recovery programs. We want to provide access to a fantastic and safe device for others to build their creative ideas on! Our philosophy is that we make you better, you make us better, and we're all better for it.
+Hardware is hard. We want to provide access to a fantastic and safe fitness device for others to build their creative ideas on! Our philosophy is that we make you better, you make us better, and we're all better for it. We know, like us, there are others with great ideas on how to improve their daily routines and unique needs.
 
 ### Contribution
 
@@ -53,7 +53,7 @@ Safety is paramount in our design philosophy. Our Digital Weight Workout System 
 - **Adaptive rowing and paddling modes**
 - **Simple controls (mechanical and touch)**
 - **Fully wireless**
-- **Self-charging from usage\***
+- **Self-charging modes**
 - **No installation required**
 - **Safety features**:
   - Body-friendly strap (no cables)
