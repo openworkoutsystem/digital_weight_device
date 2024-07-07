@@ -26,7 +26,7 @@
 | Peak Linear Force with Gear | 907.50 N (204.01 lb) |
 | Linear Speed with Gear | 3.29 m/s (10.79 ft/s) |
 
-## Motor from Cube Mars RO100 Frameless kv55 
+## Motor from Cube Mars RO100 Frameless kv55  
 [Link to Motor](https://www.cubemars.com/goods-1159-RO100.html)
 
 | Characteristic | Value |
@@ -78,7 +78,7 @@
 | Peak Linear Force with Gear | 685.67 N (154.14 lb) |
 | Linear Speed with Gear | 3.45 m/s (11.33 ft/s) |
 
-## Motor from Custom 
+## Motor from Custom                          
 [Link to Motor](nan)
 
 | Characteristic | Value |
@@ -87,7 +87,7 @@
 | Gear Ratio | 1.0 |
 | KV Rating | 20 RPM/V |
 | Max Current | 100.0 A |
-| Max Voltage | 60 V |
+| Max Voltage | 48 V |
 | Phase Resistance | 65 ohms |
 | Price | $140 |
 | Max Continuous Current | 40.0 A |

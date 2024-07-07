@@ -2,4 +2,4 @@ weight ,gear ratio ,kv  ,max current ,max voltage ,phase resistance ,max continu
    841 ,       5.5 ,100 ,       60   ,         60 ,              44 ,                  10   ,  120 ,ODrive Robotics M8325s - 100kv  ,https://shop.odriverobotics.com/products/m8325s
    750 ,       5.5 , 55 ,       60   ,         48 ,              65 ,                  20   ,  170 ,Cube Mars RO100 Frameless kv55  ,https://www.cubemars.com/goods-1159-RO100.html
    600 ,       5.5 ,105 ,       47.6 ,         48 ,              65 ,                  16.9 ,  140 ,Cube Mars RI100 Frameless kv105 ,https://www.cubemars.com/goods-859-RI100.html
-  1200 ,       1   , 20 ,      100   ,         60 ,              65 ,                  40   ,  140 ,Custom                          ,N/A
+  1200 ,       1   , 20 ,      100   ,         48 ,              65 ,                  40   ,  140 ,Custom                          ,N/A
