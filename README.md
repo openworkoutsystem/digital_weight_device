@@ -29,7 +29,7 @@ Hardware is hard. We want to provide access to a fantastic and safe fitness devi
 
 ### Contribution
 
-We welcome contributions to our project! Whether it's code, hardware designs, documentation, or testing, your input is valuable. To get started please join our Discord Community --> [Lunar Mass Discord Server](https://discord.gg/DzmPTt3dUt)
+We welcome contributions to our project! Whether it's code, hardware designs, documentation, or testing, your input is valuable. To get started please join our Discord Community --> [Open Workout System Discord Server](https://discord.gg/DzmPTt3dUt)
 For more information, questions, or collaboration inquiries, please contact us at [info@lunarmass.com].
 
 ### Safety and Accessibility
