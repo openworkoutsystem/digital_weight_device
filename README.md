@@ -1,6 +1,6 @@
 # Project Overview: Open-Source Smart Fitness
 
-Lunar Mass is an open-source community creating a high-fidelity smart health/fitness device dedicated to improving your fitness and health. Our primary goal is to develop cost-conscious, accessible, and safe workout systems that cater to a broad audience, from general fitness enthusiasts to individuals undergoing physical therapy. By leveraging open-source principles, we aim to foster a community of developers, fitness professionals, and users who can collaborate to continually improve and expand our solutions.
+Open Workout System is an open-source community creating a high-fidelity smart health/fitness device dedicated to improving your fitness and health. Our primary goal is to develop cost-conscious, accessible, and safe workout systems that cater to a broad audience, from general fitness enthusiasts to individuals undergoing physical therapy. By leveraging open-source principles, we aim to foster a community of developers, fitness professionals, and users who can collaborate to continually improve and expand our solutions.
 
 <img src="images/open_hardware.png" alt="Open Source Hardware" width="200" />
 <img src="images/v4_pictures/use_example1.png" alt="Open Source Hardware" width="800" />
