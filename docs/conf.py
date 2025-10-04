@@ -10,6 +10,7 @@ project = 'Open Workout System API'
 copyright = '2025, Aaron'
 author = 'Aaron'
 release = '1.0'
+version = '1.0'
 # The name of the master document (docname, not filename).
 master_doc = 'index'
 
@@ -17,8 +18,6 @@ master_doc = 'index'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',  # For C++-style comments if you add Doxygen later
     'sphinxcontrib.httpdomain',  # For pretty HTTP examples
 ]
 
