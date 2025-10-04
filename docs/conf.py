@@ -29,6 +29,16 @@ exclude_patterns = []
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'alabaster'  # Or 'furo' for modern look—install via requirements.txt
+html_theme = 'furo'
 html_title = 'Open Workout System API'
 html_static_path = ['_static']
+
+# Furo theme options
+html_theme_options = {
+    "source_repository": "https://github.com/openworkoutsystem/digital_weight_device/",
+    "source_branch": "main",
+    "source_directory": "docs/",
+    "sidebar_hide_name": True,
+    "navigation_with_keys": True,
+    "top_of_page_buttons": ["view", "edit"],
+}
