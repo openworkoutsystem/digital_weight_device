@@ -11,7 +11,7 @@ copyright = '2025, Aaron'
 author = 'Aaron'
 release = '1.0'
 # The name of the master document (docname, not filename).
-master_doc = 'source/index'
+master_doc = 'index'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
