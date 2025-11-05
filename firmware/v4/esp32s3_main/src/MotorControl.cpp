@@ -20,7 +20,7 @@ void initMotorControl()
         "MotorControlTask", // Name of the task
         10000,              // Stack size in words
         NULL,               // Task input parameter
-        1,                  // Priority of the task
+        2,                  // Priority of the task (increased for lower latency)
         NULL,               // Task handle
         0);                 // Core where the task should run
 }
@@ -96,10 +96,37 @@ void MotorControlTask(void *parameter)
         }
         prev_time_us = time_us;
 
+        // Handle any pending mode changes requested by other threads (e.g., WiFi) here
+        // to centralize CAN traffic and avoid cross-task contention.
+        if (xSemaphoreTake(mutex, 0) == pdTRUE)
+        {
+            if (pendingApplyStrength)
+            {
+                uint32_t velocity_control_mode = 0x00000002;
+                uint32_t passthrough_input_mode = 0x00000001;
+                uint32_t closed_loop_mode = 0x00000008;
+                sendMotorMode(CAN_NODEID_M1, velocity_control_mode, passthrough_input_mode, closed_loop_mode);
+                sendMotorMode(CAN_NODEID_M2, velocity_control_mode, passthrough_input_mode, closed_loop_mode);
+                pendingApplyStrength = false;
+                sharedData.t_ctrl_apply_ms = millis();
+            }
+            if (pendingApplyIdle)
+            {
+                uint32_t velocity_control_mode = 0x00000002;
+                uint32_t passthrough_input_mode = 0x00000001;
+                uint32_t idle_mode = 0x00000001;
+                sendMotorMode(CAN_NODEID_M1, velocity_control_mode, passthrough_input_mode, idle_mode);
+                sendMotorMode(CAN_NODEID_M2, velocity_control_mode, passthrough_input_mode, idle_mode);
+                pendingApplyIdle = false;
+                sharedData.t_ctrl_apply_ms = millis();
+            }
+            xSemaphoreGive(mutex);
+        }
+
         processI2CData();
 
-        twai_message_t message;                                    // Define the message structure
-        if (twai_receive(&message, pdMS_TO_TICKS(1000)) == ESP_OK) // Receive a message from the CAN bus
+        twai_message_t message;                     // Define the message structure
+        if (twai_receive(&message, 0) == ESP_OK)    // Non-blocking receive from the CAN bus
         {
             uint16_t nodeID = (message.identifier >> 5) & 0x003F;
             uint16_t cmdID = message.identifier & 0x001F;

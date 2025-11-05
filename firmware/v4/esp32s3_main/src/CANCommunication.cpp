@@ -10,8 +10,8 @@ const twai_general_config_t twaiConfig = {
     .rx_io = GPIO_NUM_4,
     .clkout_io = (gpio_num_t)TWAI_IO_UNUSED,
     .bus_off_io = (gpio_num_t)TWAI_IO_UNUSED,
-    .tx_queue_len = 5,
-    .rx_queue_len = 5,
+    .tx_queue_len = 10,
+    .rx_queue_len = 10,
     .alerts_enabled = TWAI_ALERT_NONE,
     .clkout_divider = 0,
 };
@@ -45,7 +45,8 @@ twai_message_t createCANMessage(uint16_t nodeID, CANCommandID commandID, uint8_t
 
 bool transmitCANMessage(twai_message_t &message)
 {
-    if (twai_transmit(&message, pdMS_TO_TICKS(1000)) != ESP_OK)
+    // Use a short timeout to avoid long stalls even within the control task.
+    if (twai_transmit(&message, pdMS_TO_TICKS(10)) != ESP_OK)
     {
         handleError(ERROR_CAN_TRANSMIT, "Failed to transmit CAN message");
         return false;

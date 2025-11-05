@@ -300,13 +300,13 @@ bool LilyGo_AMOLED::initBUS()
         digitalWrite(boards->PMICEnPins, HIGH);
     }
 
-    //reset display
+    //reset display (configurable delays)
     digitalWrite(boards->display.rst, HIGH);
-    delay(200);
+    delay(_boot.resetDelayHigh1Ms);
     digitalWrite(boards->display.rst, LOW);
-    delay(300);
+    delay(_boot.resetDelayLowMs);
     digitalWrite(boards->display.rst, HIGH);
-    delay(200);
+    delay(_boot.resetDelayHigh2Ms);
 
     spi_bus_config_t buscfg = {
         .data0_io_num = boards->display.d0,
@@ -326,7 +326,7 @@ bool LilyGo_AMOLED::initBUS()
         .command_bits = boards->display.cmdBit,
         .address_bits = boards->display.addBit,
         .mode = TFT_SPI_MODE,
-        .clock_speed_hz = boards->display.freq,
+        .clock_speed_hz = _spiHzOverride > 0 ? _spiHzOverride : boards->display.freq,
         .spics_io_num = -1,
         .flags = SPI_DEVICE_HALFDUPLEX,
         .queue_size = 17,
@@ -341,17 +341,19 @@ bool LilyGo_AMOLED::initBUS()
         log_e("spi_bus_add_device fail!");
         return false;
     }
-    // prevent initialization failure
-    int retry = 2;
-    while (retry--) {
-        const lcd_cmd_t *t = boards->display.initSequence;
-        for (uint32_t i = 0; i < boards->display.initSize; i++) {
-            writeCommand(t[i].addr, (uint8_t *)t[i].param, t[i].len & 0x1F);
-            if (t[i].len & 0x80) {
-                delay(120);
-            }
-            if (t[i].len & 0x20) {
-                delay(10);
+    if (!_boot.splashFirst) {
+        // prevent initialization failure
+        int retry = _boot.singlePassInit ? 1 : 2;
+        while (retry--) {
+            const lcd_cmd_t *t = boards->display.initSequence;
+            for (uint32_t i = 0; i < boards->display.initSize; i++) {
+                writeCommand(t[i].addr, (uint8_t *)t[i].param, t[i].len & 0x1F);
+                if (t[i].len & 0x80) {
+                    delay(_boot.initDelayLongMs);
+                }
+                if (t[i].len & 0x20) {
+                    delay(_boot.initDelayShortMs);
+                }
             }
         }
     }
@@ -361,6 +363,17 @@ bool LilyGo_AMOLED::initBUS()
 
 bool LilyGo_AMOLED::begin()
 {
+    // If known board is provided, skip autodetection
+    if (_boot.knownBoard != LILYGO_AMOLED_UNKOWN) {
+        switch (_boot.knownBoard) {
+        case LILYGO_AMOLED_147: return beginAMOLED_147();
+        case LILYGO_AMOLED_191: return beginAMOLED_191(true);
+        case LILYGO_AMOLED_241: return beginAMOLED_241();
+        default: break;
+        }
+    }
+
+    // Autodetection path (original behavior), with optional scan skips
     //Try find 1.47 inch i2c devices
     Wire.begin(1, 2);
     Wire.beginTransmission(AXP2101_SLAVE_ADDRESS);
@@ -369,7 +382,6 @@ bool LilyGo_AMOLED::begin()
     }
 
     log_e("Unable to detect 1.47-inch board model!");
-
 
     Wire.end();
 
@@ -397,9 +409,7 @@ bool LilyGo_AMOLED::begin()
 
     Wire.end();
 
-
     log_e("Begin 1.91-inch no touch board model");
-
     return beginAMOLED_191(false);
 }
 
@@ -415,16 +425,33 @@ bool LilyGo_AMOLED::beginAMOLED_191(bool touchFunc)
 
     initBUS();
 
-    if (touchFunc && boards->touch) {
+    if (_boot.splashFirst) {
+        // Minimal bring-up: Sleep Out -> wait -> optional brightness -> Display ON
+        lcd_cmd_t slp_out = {0x1100, {0x00}, 1};
+        writeCommand(slp_out.addr, slp_out.param, slp_out.len);
+        delay(_boot.initDelayLongMs);
+        // Ensure RGB565 pixel format for immediate RAM writes
+        lcd_cmd_t colmod1 = {0x3A00, {0x55}, 0x01};
+        writeCommand(colmod1.addr, colmod1.param, colmod1.len);
+        setBrightness(_brightness);
+        lcd_cmd_t disp_on = {0x2900, {0x00}, 1};
+        writeCommand(disp_on.addr, disp_on.param, disp_on.len);
+        drawQuickSplash();
+        startFinalizeInitAsync();
+    }
+
+    if (touchFunc && boards->touch && !_boot.deferTouch) {
         if (boards->touch->sda != -1 && boards->touch->scl != -1) {
             Wire.begin(boards->touch->sda, boards->touch->scl);
-            deviceScan(&Wire, &Serial);
+            if (!_boot.skipDeviceScan) {
+                deviceScan(&Wire, &Serial);
+            }
 
             // Try to find touch device
             Wire.beginTransmission(CST816_SLAVE_ADDRESS);
             if (Wire.endTransmission() == 0) {
                 TouchDrvCSTXXX::setPins(boards->touch->rst, boards->touch->irq);
-                bool res = TouchDrvCSTXXX::init(Wire, boards->touch->sda, boards->touch->scl, CST816_SLAVE_ADDRESS);
+                bool res = TouchDrvCSTXXX::begin(Wire, CST816_SLAVE_ADDRESS, boards->touch->sda, boards->touch->scl);
                 if (!res) {
                     log_e("Failed to find CST816T - check your wiring!");
                     return false;
@@ -443,20 +470,37 @@ bool LilyGo_AMOLED::beginAMOLED_241()
 
     initBUS();
 
+    if (_boot.splashFirst) {
+        lcd_cmd_t slp_out = {0x1100, {0x00}, 1};
+        writeCommand(slp_out.addr, slp_out.param, slp_out.len);
+        delay(_boot.initDelayLongMs);
+        lcd_cmd_t colmod2 = {0x3A00, {0x55}, 0x01};
+        writeCommand(colmod2.addr, colmod2.param, colmod2.len);
+        setBrightness(_brightness);
+        lcd_cmd_t disp_on = {0x2900, {0x00}, 1};
+        writeCommand(disp_on.addr, disp_on.param, disp_on.len);
+        drawQuickSplash();
+        startFinalizeInitAsync();
+    }
+
     if (boards->pmu) {
         Wire.begin(boards->pmu->sda, boards->pmu->scl);
-        deviceScan(&Wire, &Serial);
+        if (!_boot.skipDeviceScan) {
+            deviceScan(&Wire, &Serial);
+        }
         PowersSY6970::init(Wire, boards->pmu->sda, boards->pmu->scl, SY6970_SLAVE_ADDRESS);
-        PowersSY6970::enableADCMeasure();
+        if (!_boot.deferPMUADC) {
+            PowersSY6970::enableADCMeasure();
+        }
         PowersSY6970::disableOTG();
     }
 
-    if (boards->touch) {
+    if (boards->touch && !_boot.deferTouch) {
         // Try to find touch device
         Wire.beginTransmission(CST226SE_SLAVE_ADDRESS);
         if (Wire.endTransmission() == 0) {
             TouchDrvCSTXXX::setPins(boards->touch->rst, boards->touch->irq);
-            bool res = TouchDrvCSTXXX::init(Wire, boards->touch->sda, boards->touch->scl, CST226SE_SLAVE_ADDRESS);
+            bool res = TouchDrvCSTXXX::begin(Wire, CST226SE_SLAVE_ADDRESS, boards->touch->sda, boards->touch->scl);
             if (!res) {
                 log_e("Failed to find CST226SE - check your wiring!");
                 return false;
@@ -465,7 +509,7 @@ bool LilyGo_AMOLED::beginAMOLED_241()
         }
     }
 
-    if (boards->sd) {
+    if (boards->sd && !_boot.deferSD) {
         SPI.begin(boards->sd->sck, boards->sd->miso, boards->sd->mosi);
         // Set mount point to /fs
         if (!SD.begin(boards->sd->cs, SPI, 4000000U, "/fs")) {
@@ -488,11 +532,24 @@ bool LilyGo_AMOLED::beginAMOLED_147()
         return false;
     }
 
-    if (ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_INFO) {
+    if ((ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_INFO) && !_boot.skipDeviceScan) {
         deviceScan(&Wire, &Serial);
     }
 
     initBUS();
+
+    if (_boot.splashFirst) {
+        lcd_cmd_t slp_out = {0x1100, {0x00}, 1};
+        writeCommand(slp_out.addr, slp_out.param, slp_out.len);
+        delay(_boot.initDelayLongMs);
+        lcd_cmd_t colmod3 = {0x3A00, {0x55}, 0x01};
+        writeCommand(colmod3.addr, colmod3.param, colmod3.len);
+        setBrightness(_brightness);
+        lcd_cmd_t disp_on = {0x2900, {0x00}, 1};
+        writeCommand(disp_on.addr, disp_on.param, disp_on.len);
+        drawQuickSplash();
+        startFinalizeInitAsync();
+    }
 
 
     if (boards->display.frameBufferSize) {
@@ -808,6 +865,174 @@ bool LilyGo_AMOLED::hasTouch()
         }
     }
     return false;
+}
+
+// --- Fast boot controls ---
+void LilyGo_AMOLED::setFastBoot(bool enable)
+{
+    _boot.fastBoot = enable;
+    _boot.skipDeviceScan = enable;
+    _boot.singlePassInit = enable;
+    _boot.deferTouch = enable;
+    _boot.deferSD = enable;
+    _boot.deferPMUADC = enable;
+    _boot.splashFirst = enable; // enable splash-first by default when fast boot is on
+    if (enable) {
+        // Ultra-fast defaults (validate on hardware; revert if unstable)
+        _boot.resetDelayHigh1Ms = 20;
+        _boot.resetDelayLowMs   = 10;
+        _boot.resetDelayHigh2Ms = 20;
+        _boot.initDelayLongMs   = 20;  // Sleep Out wait
+        _boot.initDelayShortMs  = 1;   // command settle
+    } else {
+        _boot.resetDelayHigh1Ms = 200;
+        _boot.resetDelayLowMs   = 300;
+        _boot.resetDelayHigh2Ms = 200;
+        _boot.initDelayLongMs   = 120;
+        _boot.initDelayShortMs  = 10;
+    }
+}
+
+void LilyGo_AMOLED::setSplashFirst(bool enable)
+{
+    _boot.splashFirst = enable;
+}
+
+void LilyGo_AMOLED::setKnownBoardID(AmoledBoardID id)
+{
+    _boot.knownBoard = id;
+}
+
+bool LilyGo_AMOLED::initTouchNow()
+{
+    if (!boards || !boards->touch) return false;
+
+    if (boards == &BOARD_AMOLED_191) {
+        Wire.begin(boards->touch->sda, boards->touch->scl);
+        Wire.beginTransmission(CST816_SLAVE_ADDRESS);
+        if (Wire.endTransmission() == 0) {
+            TouchDrvCSTXXX::setPins(boards->touch->rst, boards->touch->irq);
+            bool res = TouchDrvCSTXXX::begin(Wire, CST816_SLAVE_ADDRESS, boards->touch->sda, boards->touch->scl);
+            if (!res) return false;
+            TouchDrvCSTXXX::setMaxCoordinates(RM67162_HEIGHT, RM67162_WIDTH);
+            return true;
+        }
+        return false;
+    }
+    if (boards == &BOARD_AMOLED_241) {
+        Wire.begin(boards->touch->sda, boards->touch->scl);
+        Wire.beginTransmission(CST226SE_SLAVE_ADDRESS);
+        if (Wire.endTransmission() == 0) {
+            TouchDrvCSTXXX::setPins(boards->touch->rst, boards->touch->irq);
+            bool res = TouchDrvCSTXXX::begin(Wire, CST226SE_SLAVE_ADDRESS, boards->touch->sda, boards->touch->scl);
+            if (!res) return false;
+            TouchDrvCSTXXX::setMaxCoordinates(RM690B0_HEIGHT, RM690B0_WIDTH);
+            return true;
+        }
+        return false;
+    }
+    if (boards == &BOARD_AMOLED_147) {
+        // Already initialized in beginAMOLED_147
+        return true;
+    }
+    return false;
+}
+
+bool LilyGo_AMOLED::initSDNow()
+{
+    if (!boards || !boards->sd) return false;
+    if (boards == &BOARD_AMOLED_241) {
+        SPI.begin(boards->sd->sck, boards->sd->miso, boards->sd->mosi);
+        if (!SD.begin(boards->sd->cs, SPI, 4000000U, "/fs")) {
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+bool LilyGo_AMOLED::enablePMUADCNow()
+{
+    if (!boards || !boards->pmu) return false;
+    if (boards == &BOARD_AMOLED_241) {
+        PowersSY6970::enableADCMeasure();
+        return true;
+    }
+    return false;
+}
+
+bool LilyGo_AMOLED::startFinalizeInitAsync()
+{
+    if (_finalizeScheduled || _finalized) return false;
+    _finalizeScheduled = true;
+    BaseType_t ok = xTaskCreatePinnedToCore(
+                        finalizeTaskTrampoline,
+                        "amoled_final",
+                        4096,
+                        this,
+                        1,
+                        &_finalizeTaskHandle,
+                        APP_CPU_NUM
+                    );
+    return ok == pdPASS;
+}
+
+void LilyGo_AMOLED::finalizeTaskTrampoline(void *arg)
+{
+    reinterpret_cast<LilyGo_AMOLED *>(arg)->finalizeInitSequenceTask();
+}
+
+void LilyGo_AMOLED::finalizeInitSequenceTask()
+{
+    if (!boards) {
+        _finalized = true;
+        vTaskDelete(NULL);
+        return;
+    }
+    const lcd_cmd_t *t = boards->display.initSequence;
+    for (uint32_t i = 0; i < boards->display.initSize; i++) {
+        writeCommand(t[i].addr, (uint8_t *)t[i].param, t[i].len & 0x1F);
+        if (t[i].len & 0x80) {
+            vTaskDelay(pdMS_TO_TICKS(_boot.initDelayLongMs));
+        }
+        if (t[i].len & 0x20) {
+            vTaskDelay(pdMS_TO_TICKS(_boot.initDelayShortMs));
+        }
+    }
+    _finalized = true;
+    vTaskDelete(NULL);
+}
+
+void LilyGo_AMOLED::drawQuickSplash()
+{
+    // Draw a tiny bright square near the center to make the panel visibly "on"
+    const uint16_t w = 32;
+    const uint16_t h = 32;
+    uint16_t cx = width() / 2;
+    uint16_t cy = height() / 2;
+    uint16_t x = (cx > w/2) ? (cx - w/2) : 0;
+    uint16_t y = (cy > h/2) ? (cy - h/2) : 0;
+    static uint16_t block[w * h];
+    for (uint32_t i = 0; i < w * h; ++i) block[i] = 0xFFFF; // white
+    pushColors(x, y, w, h, block);
+}
+
+void LilyGo_AMOLED::tuneResetDelays(uint16_t high1Ms, uint16_t lowMs, uint16_t high2Ms)
+{
+    _boot.resetDelayHigh1Ms = high1Ms;
+    _boot.resetDelayLowMs = lowMs;
+    _boot.resetDelayHigh2Ms = high2Ms;
+}
+
+void LilyGo_AMOLED::tuneInitDelays(uint16_t longMs, uint16_t shortMs)
+{
+    _boot.initDelayLongMs = longMs;
+    _boot.initDelayShortMs = shortMs;
+}
+
+void LilyGo_AMOLED::setDisplaySpiHz(int hz)
+{
+    _spiHzOverride = hz;
 }
 
 

@@ -16,6 +16,10 @@ SharedCfgData sharedCfgData = {0};
 // Control state
 ControlState controlState = {0};
 
+// Pending actions to be handled in the control task
+volatile bool pendingApplyIdle = false;
+volatile bool pendingApplyStrength = false;
+
 // I2C command handlers array
 I2CCommandHandler i2cCommandHandlers[] = {
     {I2C_GET_STATUS, i2cHandleGetStatus, "Get Status"},

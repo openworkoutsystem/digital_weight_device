@@ -95,16 +95,25 @@ void setup(void)
     // Wire.begin();
     // register events for incoming I2C data from the main MCU
     // Wire_main_mcu.onReceive(receiveI2CEvent);
-    Wire_main_mcu.begin(SDA_PIN_MCU, SCL_PIN_MCU, 100000); // join i2c bus (address optional for master)
+    Wire_main_mcu.begin(SDA_PIN_MCU, SCL_PIN_MCU, 400000); // faster I2C for encoder/seesaw responsiveness
 
     // START OF OLED CODE
     bool rslt = false;
+
+    // Enable ultra-fast boot with immediate splash. Optionally set your known board.
+    amoled.setFastBoot(true);
+    amoled.setSplashFirst(true);
+    // If you know your panel, uncomment ONE of these to skip autodetect entirely:
+    // amoled.setKnownBoardID(LILYGO_AMOLED_191); // T-Display-S3 AMOLED 1.91"
+    // amoled.setKnownBoardID(LILYGO_AMOLED_241); // T4-S3 AMOLED 2.41"
 
     // Begin LilyGo  1.91 Inch AMOLED board class
     // rslt =  amoled.beginAMOLED_191();
 
     // Automatically determine the access device
     rslt = amoled.begin();
+    // Fast-boot defers touch; initialize it now so LVGL gets touches
+    amoled.initTouchNow();
 
     if (!rslt)
     {
@@ -178,7 +187,7 @@ void setup(void)
         "EncoderTask", /* String with name of task. */
         10000,         /* Stack size in words. */
         NULL,          /* Parameter passed as input of the task */
-        1,             /* Priority of the task. */
+        3,             /* Higher priority to reduce input lag. */
         NULL);         /* Task handle. */
     // END OF ENCODER CODE
 
@@ -255,7 +264,7 @@ void encoderTask(void *parameter)
             dispatchRotaryEvent(encoder_position);
         }
 
-        vTaskDelay(10 / portTICK_PERIOD_MS); // small delay to prevent task from hogging CPU
+        vTaskDelay(2 / portTICK_PERIOD_MS); // tighter polling for lower latency
     }
 }
 

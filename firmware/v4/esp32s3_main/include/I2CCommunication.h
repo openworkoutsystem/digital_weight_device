@@ -62,6 +62,11 @@ struct ControlState
 };
 extern ControlState controlState;
 
+// Pending actions requested from other threads (e.g., WiFi)
+// These are applied by the MotorControlTask to centralize CAN TX and avoid cross-task contention.
+extern volatile bool pendingApplyIdle;
+extern volatile bool pendingApplyStrength;
+
 struct I2C_SET_DEBUG
 {
     uint16_t mask = 0;

@@ -290,6 +290,28 @@ public:
 
     bool beginAMOLED_241();
 
+    // Fast boot configuration
+    // Enable to reduce cold-boot time by:
+    // - Skipping I2C device scans
+    // - Running display init sequence once
+    // - Deferring non-essential peripherals (Touch/SD) until later
+    void setFastBoot(bool enable);
+
+    // If the target board is known, set it to skip autodetection entirely
+    void setKnownBoardID(AmoledBoardID id);
+    void setSplashFirst(bool enable);
+
+    // Perform deferred initializations (no-op if already initialized or unsupported)
+    bool initTouchNow();
+    bool initSDNow();
+    bool enablePMUADCNow();
+    bool startFinalizeInitAsync();
+
+    // Fine-tune timings and SPI speed for experimentation on hardware
+    void tuneResetDelays(uint16_t high1Ms, uint16_t lowMs, uint16_t high2Ms);
+    void tuneInitDelays(uint16_t longMs, uint16_t shortMs);
+    void setDisplaySpiHz(int hz);
+
 
     void setBrightness(uint8_t level);
     uint8_t getBrightness();
@@ -339,6 +361,33 @@ private:
     spi_device_handle_t spi;
     uint8_t _brightness;
     const BoardsConfigure_t *boards;
+    int _spiHzOverride = 0;
+    // Async finalize
+    bool _finalizeScheduled = false;
+    bool _finalized = false;
+    TaskHandle_t _finalizeTaskHandle = nullptr;
+    static void finalizeTaskTrampoline(void *arg);
+    void finalizeInitSequenceTask();
+    void drawQuickSplash();
+
+    // Boot-time behavior controls
+    struct BootOptions {
+        bool fastBoot = false;
+        bool skipDeviceScan = false;
+        bool singlePassInit = false;
+        bool deferTouch = false;
+        bool deferSD = false;
+        bool deferPMUADC = false;
+        bool splashFirst = false;
+        // Reset timing customization
+        uint16_t resetDelayHigh1Ms = 200; // initial HIGH
+        uint16_t resetDelayLowMs   = 300; // LOW pulse
+        uint16_t resetDelayHigh2Ms = 200; // final HIGH
+        // Init-sequence embedded delays (flags 0x80 -> long, 0x20 -> short)
+        uint16_t initDelayLongMs = 120;
+        uint16_t initDelayShortMs = 10;
+        AmoledBoardID knownBoard = LILYGO_AMOLED_UNKOWN;
+    } _boot;
 
 #if ESP_IDF_VERSION > ESP_IDF_VERSION_VAL(5,0,0)
     temperature_sensor_handle_t temp_sensor;

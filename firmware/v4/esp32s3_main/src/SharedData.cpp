@@ -20,6 +20,9 @@ void initSharedData()
     sharedData.velocity = 0.0;
     sharedData.virtual_velocity = 0.0;
     sharedData.status = "OK";
+    sharedData.t_http_received_ms = 0;
+    sharedData.t_cmd_set_ms = 0;
+    sharedData.t_ctrl_apply_ms = 0;
 
     pulseData.updated = false;
     detentData.updated = false;

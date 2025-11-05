@@ -16,6 +16,10 @@ struct SharedData
     float velocity;
     float virtual_velocity;
     String status;
+    // Debug timestamps (millis) to trace command latency across layers
+    unsigned long t_http_received_ms;   // when HTTP request processed
+    unsigned long t_cmd_set_ms;         // when WiFi handler set command/pending flags
+    unsigned long t_ctrl_apply_ms;      // when control task applied mode change
 };
 
 struct PulseData
