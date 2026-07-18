@@ -10,3 +10,4 @@ secrets.h
 # OS noise
 .DS_Store
 Thumbs.db
+electrical/battery_pcb/LiFePO4_PCB_25x100/.history
