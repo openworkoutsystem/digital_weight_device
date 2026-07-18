@@ -191,8 +191,10 @@ static float g_homePos = 1e9f;         // running min of pull position
 static float g_homeZone = 1.0f;        // revs from home (~20% of the new
                                        // ~5-rev stroke; was 0.75 of the old
                                        // 0.8-rev stroke)
-static float g_recoilTorqueNm = 0.3f;  // ~1.5 lbf recoil force / cap floor
-                                       // (new drivetrain: ~5 lbf/Nm)
+static float g_recoilTorqueNm = 0.8f;  // ~4 lbf recoil force / cap floor
+                                       // (new drivetrain: ~5 lbf/Nm; 0.3
+                                       // was too weak to stow — bench
+                                       // feedback 2026-07-17)
 static float g_recoilVel = 8.0f;       // rev/s stow speed at weight 0 —
                                        // sized to the ~5-rev stroke so the
                                        // strap keeps up with a returning hand

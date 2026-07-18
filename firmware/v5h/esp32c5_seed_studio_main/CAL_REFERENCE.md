@@ -20,7 +20,7 @@ drivetrain **1 N·m ≈ 5 lbf at the handle** and a full stroke ≈ 5 revs.
 | `fric_k` | 0.17 | [0..0.5] | directional friction comp: boosts lowering / trims pulling by ±k (≈70% of the measured 0.25 capstan loss — never exceed measured; overcomp = negative damping) |
 | `fric_band` | 0.6 | rev/s | pull speed at which the comp blend saturates |
 | `zero_m1` | 0.1 | [0..1] | keep-taut floor torque (N·m) at ~0 target force |
-| `recoil_tq` | 0.3 | [0..2] | 0 lb self-stow pull, N·m |
+| `recoil_tq` | 0.8 | [0..2] | 0 lb self-stow pull, N·m (~4 lbf) |
 | `recoil_vel` | 8 | (0..50] | 0 lb stow speed, rev/s (slows to ~2 near the dock automatically) |
 | `zone` | 1.0 | (0..10] | dock zone (revs): force tapers + speed drops inside it |
 | `sleep_s` | 10 | (0..3600] | parked-and-still seconds before the axis sleeps |

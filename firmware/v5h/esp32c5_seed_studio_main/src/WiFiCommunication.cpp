@@ -53,6 +53,9 @@ static void writeCorsHeaders(WiFiClient &client)
     client.println("Access-Control-Allow-Origin: *");
     client.println("Access-Control-Allow-Methods: GET, POST, OPTIONS");
     client.println("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+    // Chrome Private Network Access: lets pages on more-public origins pass
+    // their preflight when reaching this LAN device
+    client.println("Access-Control-Allow-Private-Network: true");
 }
 
 static bool readHttpRequest(WiFiClient &client, String &header, String &body, int &contentLength)
@@ -335,16 +338,26 @@ void initWiFi()
 
 // Background connect/reconnect: scans for the best known network whenever
 // disconnected and brings the servers up on the first successful join.
+// POLICY: never scan while force is being rendered. On the single-core C5
+// a dual-band scan preempts the 500 Hz motor stream long enough to trip
+// the moteus watchdog — offline garage sessions felt like periodic force
+// dropouts every ~13 s (2026-07-17). Attempts run only while the machine
+// is idle/asleep, with a 30 s backoff between offline attempts.
 static void WiFiManagerTask(void *parameter)
 {
     (void)parameter;
     for (;;)
     {
-        if (WiFi.status() != WL_CONNECTED)
+        if (WiFi.status() != WL_CONNECTED && controlState.mode == 0)
         {
             if (wifiMulti.run(8000) == WL_CONNECTED && !g_netServicesUp)
             {
                 startNetworkServices();
+            }
+            if (WiFi.status() != WL_CONNECTED)
+            {
+                vTaskDelay(pdMS_TO_TICKS(30000)); // offline backoff
+                continue;
             }
         }
         vTaskDelay(pdMS_TO_TICKS(5000));
