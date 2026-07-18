@@ -86,6 +86,7 @@ struct SharedStateData
     uint8_t row_drag;  // applied drag 1-10, 0 while row mode is off
     uint8_t row_gear;  // applied gear 1-10, 0 while row mode is off
     float row_watts;   // smoothed per-stroke average power
+    uint32_t ip_addr;  // device IPv4 (octet0 in LSB; 0 = no WiFi)
     // Integrity trailer:
     uint8_t seq;      // incremented per response by the main board
     uint8_t checksum; // additive checksum (seed 0xA5) over preceding bytes
@@ -200,7 +201,11 @@ static uint32_t lastRowSentMs = 0;
 static uint8_t rowSendTries = 0;
 
 // ---------------- UI Event Queue to keep LVGL single-threaded ----------------
-enum UiEventType : uint8_t { UIE_KEY = 1, UIE_ROTARY = 2, UIE_BATT = 3, UIE_WEIGHT_SYNC = 4, UIE_ROW_STATS = 5 };
+enum UiEventType : uint8_t { UIE_KEY = 1, UIE_ROTARY = 2, UIE_BATT = 3, UIE_WEIGHT_SYNC = 4, UIE_ROW_STATS = 5, UIE_IP = 6 };
+
+// Device IP readout under the home screen's voltage (created in code so
+// SquareLine re-exports keep it)
+static lv_obj_t *ui_IpLabel = NULL;
 struct UiEvent {
     UiEventType type;
     uint32_t    u32;   // keys/rotary value
@@ -354,6 +359,20 @@ void setup(void)
     lv_label_set_text(ui_LabelBatteryLife, "--");
     lv_label_set_text(ui_LabelBatteryLife2, "--");
     lv_label_set_text(ui_LabelBatteryLife3, "--");
+    // Device IP inside the home screen's black status box, under the
+    // voltage. Static positions like every other object on this screen
+    // (align_to at setup time reads pre-layout coordinates and lands
+    // wrong). Box: 127x72 centered at (-4,-95) => spans y -131..-59 in
+    // center-offset terms; voltage moves up to y -99 (occupies ~-113..-85)
+    // and the IP line sits at y -70 (~-78..-62), inside the box bottom.
+    lv_obj_set_y(ui_LabelBatteryLife2, -99);
+    ui_IpLabel = lv_label_create(ui_MainScreen);
+    lv_obj_set_style_text_font(ui_IpLabel, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(ui_IpLabel, lv_color_hex(0x999999), 0);
+    lv_obj_set_align(ui_IpLabel, LV_ALIGN_CENTER);
+    lv_obj_set_x(ui_IpLabel, -4);
+    lv_obj_set_y(ui_IpLabel, -70);
+    lv_label_set_text(ui_IpLabel, "no wifi");
 
     // Create UI event queue (route all UI updates via main loop)
     uiEventQueue = xQueueCreate(16, sizeof(UiEvent));
@@ -428,6 +447,20 @@ void loop()
                     // gear/drag labels re-synced (they can change via WiFi)
                     lv_label_set_text_fmt(ui_Label9, "%d", (int)lroundf(ev.f32));
                     setRowLabels();
+                    break;
+                case UIE_IP:
+                    if (ui_IpLabel) {
+                        if (ev.u32 == 0) {
+                            lv_label_set_text(ui_IpLabel, "no wifi");
+                        } else {
+                            lv_label_set_text_fmt(ui_IpLabel, "%u.%u.%u.%u",
+                                                  (unsigned)(ev.u32 & 0xFF),
+                                                  (unsigned)((ev.u32 >> 8) & 0xFF),
+                                                  (unsigned)((ev.u32 >> 16) & 0xFF),
+                                                  (unsigned)((ev.u32 >> 24) & 0xFF));
+                        }
+                        // Center-aligned: re-centers itself on text change
+                    }
                     break;
                 default:
                     break;
@@ -589,6 +622,15 @@ void readBatteryLifeTask(void *parameter)
                 if (rowActive && uiEventQueue)
                 {
                     UiEvent ev{UIE_ROW_STATS, (uint32_t)sharedStateData.row_spm, sharedStateData.row_watts};
+                    xQueueSend(uiEventQueue, &ev, 0);
+                }
+
+                // Device IP readout: update the home-screen label on change
+                static uint32_t lastIpShown = 0xFFFFFFFF;
+                if (sharedStateData.ip_addr != lastIpShown && uiEventQueue)
+                {
+                    lastIpShown = sharedStateData.ip_addr;
+                    UiEvent ev{UIE_IP, sharedStateData.ip_addr, 0};
                     xQueueSend(uiEventQueue, &ev, 0);
                 }
             }

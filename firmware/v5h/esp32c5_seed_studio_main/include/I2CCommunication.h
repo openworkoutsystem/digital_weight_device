@@ -80,6 +80,8 @@ struct SharedStateData
     uint8_t row_drag;  // applied drag 1-10, 0 while row mode is off
     uint8_t row_gear;  // applied gear 1-10, 0 while row mode is off
     float row_watts;   // smoothed per-stroke average power
+    uint32_t ip_addr;  // device IPv4 (IPAddress byte order, octet0 in LSB;
+                       // 0 = no WiFi) — shown on the display's home screen
     // Integrity trailer:
     uint8_t seq;      // incremented per I2C response
     uint8_t checksum; // additive checksum (seed 0xA5) over preceding bytes;

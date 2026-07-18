@@ -20,6 +20,7 @@ static const struct
     const char *pass;
 } KNOWN_NETWORKS[] = {
     {WIFI_SSID_HOME, WIFI_PASS_HOME},
+    {WIFI_SSID_2, WIFI_PASS_2},
 };
 
 static WiFiMulti wifiMulti;

@@ -4,6 +4,7 @@
 #include "MotorControl.h"
 #include "SharedData.h"
 #include <Wire.h>
+#include <WiFi.h>
 
 // ROLE FLIP: the C5 is the I2C MASTER of the display link (see header).
 // HP I2C0 = the Arduino global `Wire`; the alias keeps old call sites.
@@ -56,6 +57,9 @@ static void pushStatusFrame()
         sharedStateData.newData = false;
         xSemaphoreGive(mutex);
     }
+    // Stamp the live IP into the outgoing copy (0 while offline) — the
+    // display shows it on the home screen for the web app / cal tooling
+    lastGood.ip_addr = (WiFi.status() == WL_CONNECTED) ? (uint32_t)WiFi.localIP() : 0;
     static uint8_t seq = 0;
     lastGood.seq = ++seq;
     lastGood.checksum = additiveChecksum((const uint8_t *)&lastGood,
