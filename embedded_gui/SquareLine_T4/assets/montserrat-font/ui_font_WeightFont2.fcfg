@@ -1,0 +1,16 @@
+{
+  "codename": "WeightFont2",
+  "ttf_path": "\\assets\\montserrat-font\\MontserratBlack-3zOvZ.ttf",
+  "bin_path": "\\assets\\montserrat-font\\ui_font_WeightFont2.bin",
+  "c_path": "\\assets\\montserrat-font\\ui_font_WeightFont2.c",
+  "cfg_path": "\\assets\\montserrat-font\\ui_font_WeightFont2.fcfg",
+  "size": 100,
+  "bpp": 8,
+  "letters": 0,
+  "ranges": [
+    "0x20-0x7f"
+  ],
+  "symbols": "",
+  "customparams": "--no-compress --no-prefilter",
+  "uploaded": false
+}

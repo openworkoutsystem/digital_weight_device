@@ -1,0 +1,18 @@
+list(
+  APPEND
+  PROJECT_SOURCES
+  ${CMAKE_CURRENT_LIST_DIR}/ui.c
+  ${CMAKE_CURRENT_LIST_DIR}/ui_helpers.c
+  ${CMAKE_CURRENT_LIST_DIR}/ui_events.c
+  ${CMAKE_CURRENT_LIST_DIR}/screens/ui_MainScreen.c
+  ${CMAKE_CURRENT_LIST_DIR}/screens/ui_RowScreen.c
+  ${CMAKE_CURRENT_LIST_DIR}/screens/ui_SetWeightValue.c
+  ${CMAKE_CURRENT_LIST_DIR}/screens/ui_StrengthScreen.c
+  ${CMAKE_CURRENT_LIST_DIR}/screens/ui_StrengthScreen01.c
+  ${CMAKE_CURRENT_LIST_DIR}/screens/ui_SystemScreen.c
+  ${CMAKE_CURRENT_LIST_DIR}/fonts/ui_font_RowFont.c
+  ${CMAKE_CURRENT_LIST_DIR}/fonts/ui_font_RowFont2.c
+  ${CMAKE_CURRENT_LIST_DIR}/fonts/ui_font_WeightFont.c
+  ${CMAKE_CURRENT_LIST_DIR}/fonts/ui_font_WeightFont2.c
+  ${CMAKE_CURRENT_LIST_DIR}/images/ui_img_886805914.c
+)

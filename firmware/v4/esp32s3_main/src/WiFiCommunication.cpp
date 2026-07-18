@@ -19,6 +19,8 @@ WebSocketsServer webSocket(81);
 
 // Throttle metrics broadcast over WebSocket
 static unsigned long lastWsMetricsMs = 0;
+static const unsigned long WS_METRICS_INTERVAL_MS = 400; // relaxed from 250ms to reduce burst contention
+static unsigned long lastWsCmdMs = 0; // Track when commands arrive to avoid broadcast blocking
 
 // When true, dedicated FreeRTOS tasks service WS/HTTP and the legacy
 // handleWiFiClients() should become a no-op to avoid double-processing.
@@ -88,17 +90,18 @@ static bool readHttpRequest(WiFiClient &client, String &header, String &body, in
 void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
     switch(type) {
         case WStype_DISCONNECTED:
-            Serial.printf("[%u] Disconnected!\n", num);
+            // Serial.printf("[%u] Disconnected!\n", num);
             break;
         case WStype_CONNECTED: {
             IPAddress ip = webSocket.remoteIP(num);
-            Serial.printf("[%u] Connected from %d.%d.%d.%d\n", num, ip[0], ip[1], ip[2], ip[3]);
+            // Serial.printf("[%u] Connected from %d.%d.%d.%d\n", num, ip[0], ip[1], ip[2], ip[3]);
             break;
         }
         case WStype_TEXT: {
-            Serial.printf("[%u] Received: %s\n", num, payload);
+            // Avoid synchronous serial printing in WS hot path to prevent latency spikes
             // Record when the WS command arrived; reuse HTTP timing fields for unified metrics
-            sharedData.t_http_received_ms = millis();
+            lastWsCmdMs = millis();
+            sharedData.t_http_received_ms = lastWsCmdMs;
             sharedData.t_cmd_set_ms = 0;
             sharedData.t_ctrl_apply_ms = 0;
             StaticJsonDocument<512> doc;
@@ -121,40 +124,38 @@ void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t leng
                 String out; serializeJson(resp, out);
                 webSocket.sendTXT(num, out);
             } else if (cmd == "idle") {
-                if (xSemaphoreTake(mutex, 0) == pdTRUE) {
-                    controlState.mode = 0;
-                    pendingApplyIdle = true;
-                    xSemaphoreGive(mutex);
+                // Enqueue non-blocking idle command; control task will apply.
+                CommandMsg msg; msg.type = CMD_IDLE; msg.weight_kg = 0;
+                if (g_cmdQueue) { xQueueSend(g_cmdQueue, &msg, 0); }
+                // Only update mode data locally if transitioning
+                if (controlState.mode != 0) {
+                    updateModeData("off");
+                    updatePulseData("off", 0, 0, 0);
+                    updateRowData("off", 0, 0, 0);
                 }
-                sharedData.t_cmd_set_ms = millis();
-                updateModeData("off");
-                updatePulseData("off", 0, 0, 0);
-                updateRowData("off", 0, 0, 0);
-                StaticJsonDocument<128> resp;
-                resp["result"] = "idle";
-                if (doc.containsKey("client_ts")) resp["client_ts"] = doc["client_ts"];
-                String out; serializeJson(resp, out);
-                webSocket.sendTXT(num, out);
+                // Echo RTT
+                if (doc.containsKey("client_ts")) {
+                    String out = "{\"result\":\"idle\",\"client_ts\":";
+                    out += doc["client_ts"].as<long long>();
+                    out += "}";
+                    webSocket.sendTXT(num, out);
+                } else {
+                    webSocket.sendTXT(num, "{\"result\":\"idle\"}");
+                }
             } else if (cmd == "strength") {
                 float weight_lbs = doc.containsKey("weight_lbs") ? (float)doc["weight_lbs"] : 0.0f;
                 float weight_kg = doc.containsKey("weight_kg") ? (float)doc["weight_kg"] : (weight_lbs * 0.45359237f);
-                float target_force_n = weight_kg * 9.81f;
-                if (xSemaphoreTake(mutex, 0) == pdTRUE) {
-                    sharedCfgData.target_force = target_force_n;
-                    controlState.mode = 1;
-                    pendingApplyStrength = true;
-                    xSemaphoreGive(mutex);
-                }
-                sharedData.t_cmd_set_ms = millis();
+                // Enqueue non-blocking strength command
+                CommandMsg msg; msg.type = CMD_STRENGTH; msg.weight_kg = weight_kg; if (g_cmdQueue) { xQueueSend(g_cmdQueue, &msg, 0); }
                 updateModeData("strength");
-                StaticJsonDocument<128> resp;
-                resp["result"] = "strength";
-                resp["weight_kg"] = weight_kg;
-                resp["target_force_n"] = target_force_n;
-                if (doc.containsKey("client_ts")) resp["client_ts"] = doc["client_ts"];
-                String response;
-                serializeJson(resp, response);
-                webSocket.sendTXT(num, response);
+                if (doc.containsKey("client_ts")) {
+                    String out = "{\"result\":\"strength\",\"client_ts\":";
+                    out += doc["client_ts"].as<long long>();
+                    out += "}";
+                    webSocket.sendTXT(num, out);
+                } else {
+                    webSocket.sendTXT(num, "{\"result\":\"strength\"}");
+                }
             } else if (cmd == "detent") {
                 String type = doc["type"];
                 int strength = doc["strength"];
@@ -234,10 +235,12 @@ void initWiFi()
     server.setNoDelay(true);
 
     webSocket.begin();
+    // webSocket.setNoDelay(true); // Not supported by WebSocketsServer lib; rely on server.setNoDelay(true) for TCP
     webSocket.onEvent(onWebSocketEvent);
     Serial.println("WebSocket server started on port 81.");
 
     WiFi.setHostname("digital-weight");
+    delay(500); // give network stack a moment before starting mDNS
     if (MDNS.begin("digital-weight"))
     {
         MDNS.addService("http", "tcp", 80);
@@ -255,7 +258,7 @@ void initWiFi()
         "WebSocketTask",
         8192,
         nullptr,
-        2,
+        2, // match control task priority to allow fair scheduling
         nullptr,
         0);
     BaseType_t httpOk = xTaskCreatePinnedToCore(
@@ -285,7 +288,8 @@ void handleWiFiClients()
 
     // Broadcast metrics periodically over WS to avoid HTTP polling overhead
     unsigned long nowMs = millis();
-    if (nowMs - lastWsMetricsMs >= 250) {
+    // Skip broadcast if command received recently (within 100ms) to avoid blocking during rapid toggling
+    if (nowMs - lastWsMetricsMs >= WS_METRICS_INTERVAL_MS && (nowMs - lastWsCmdMs) > 250) {
         lastWsMetricsMs = nowMs;
         StaticJsonDocument<512> doc;
         doc["type"] = "metrics";
@@ -295,6 +299,8 @@ void handleWiFiClients()
         doc["accelerometer_x"] = sharedData.accelerometer_x;
         doc["accelerometer_y"] = sharedData.accelerometer_y;
         doc["accelerometer_z"] = sharedData.accelerometer_z;
+        doc["voltage"] = sharedStateData.voltage;
+        doc["current"] = sharedStateData.current;
         doc["status"] = sharedData.status;
         doc["virtual_velocity"] = sharedData.virtual_velocity;
         doc["t_http_received_ms"] = sharedData.t_http_received_ms;
@@ -371,6 +377,8 @@ void handleWiFiClients()
         doc["force"] = sharedData.force;
         doc["position"] = sharedData.position;
         doc["velocity"] = sharedData.velocity;
+        doc["voltage"] = sharedStateData.voltage;
+        doc["current"] = sharedStateData.current;
         doc["virtual_velocity"] = sharedData.virtual_velocity;
         doc["status"] = sharedData.status;
         // Debug timestamps for latency tracing
@@ -423,50 +431,44 @@ void handleWiFiClients()
             }
             else if (cmd == "idle")
             {
-                // Request idle mode to be applied by the control task (centralized CAN TX)
-                if (xSemaphoreTake(mutex, 0) == pdTRUE)
-                {
-                    controlState.mode = 0;
-                    pendingApplyIdle = true;
-                    xSemaphoreGive(mutex);
+                // Queue non-blocking idle command
+                CommandMsg msg; msg.type = CMD_IDLE; msg.weight_kg = 0; if (g_cmdQueue) { xQueueSend(g_cmdQueue, &msg, 0); }
+                if (controlState.mode != 0) {
+                    updateModeData("off");
+                    updatePulseData("off", 0, 0, 0);
+                    updateRowData("off", 0, 0, 0);
                 }
-                sharedData.t_cmd_set_ms = millis();
-                updateModeData("off");
-                updatePulseData("off", 0, 0, 0);
-                updateRowData("off", 0, 0, 0);
                 client.println("HTTP/1.1 200 OK");
                 client.println("Content-Type: application/json");
                 writeCorsHeaders(client);
                 client.println("Connection: close");
                 client.println();
-                StaticJsonDocument<50> resp;
-                resp["result"] = "idle";
-                serializeJson(resp, client);
+                if (doc.containsKey("client_ts")) {
+                    client.print("{\"result\":\"idle\",\"client_ts\":");
+                    client.print((long long)doc["client_ts"].as<long long>());
+                    client.print("}");
+                } else {
+                    client.print("{\"result\":\"idle\"}");
+                }
             }
             else if (cmd == "strength")
             {
                 float weight_lbs = doc.containsKey("weight_lbs") ? (float)doc["weight_lbs"] : 0.0f;
                 float weight_kg = doc.containsKey("weight_kg") ? (float)doc["weight_kg"] : (weight_lbs * 0.45359237f);
-                float target_force_n = weight_kg * 9.81f;
-                if (xSemaphoreTake(mutex, 0) == pdTRUE)
-                {
-                    sharedCfgData.target_force = target_force_n;
-                    controlState.mode = 1;
-                    pendingApplyStrength = true;
-                    xSemaphoreGive(mutex);
-                }
-                sharedData.t_cmd_set_ms = millis();
+                CommandMsg msg; msg.type = CMD_STRENGTH; msg.weight_kg = weight_kg; if (g_cmdQueue) { xQueueSend(g_cmdQueue, &msg, 0); }
                 updateModeData("strength");
                 client.println("HTTP/1.1 200 OK");
                 client.println("Content-Type: application/json");
                 writeCorsHeaders(client);
                 client.println("Connection: close");
                 client.println();
-                StaticJsonDocument<80> resp;
-                resp["result"] = "strength";
-                resp["weight_kg"] = weight_kg;
-                resp["target_force_n"] = target_force_n;
-                serializeJson(resp, client);
+                if (doc.containsKey("client_ts")) {
+                    client.print("{\"result\":\"strength\",\"client_ts\":");
+                    client.print((long long)doc["client_ts"].as<long long>());
+                    client.print("}");
+                } else {
+                    client.print("{\"result\":\"strength\"}");
+                }
             }
             else if (cmd == "detent")
             {
@@ -571,7 +573,8 @@ static void WebSocketTask(void *parameter)
 
         // Periodic metrics broadcast (same cadence as legacy path)
         unsigned long nowMs = millis();
-        if (nowMs - lastWsMetricsMs >= 250) {
+        // Skip broadcast if command received recently (within 100ms) to avoid blocking during rapid toggling
+        if (nowMs - lastWsMetricsMs >= WS_METRICS_INTERVAL_MS && (nowMs - lastWsCmdMs) > 250) {
             lastWsMetricsMs = nowMs;
             StaticJsonDocument<512> doc;
             doc["type"] = "metrics";
@@ -581,17 +584,21 @@ static void WebSocketTask(void *parameter)
             doc["accelerometer_x"] = sharedData.accelerometer_x;
             doc["accelerometer_y"] = sharedData.accelerometer_y;
             doc["accelerometer_z"] = sharedData.accelerometer_z;
+            doc["voltage"] = sharedStateData.voltage;
+            doc["current"] = sharedStateData.current;
             doc["status"] = sharedData.status;
             doc["virtual_velocity"] = sharedData.virtual_velocity;
             doc["t_http_received_ms"] = sharedData.t_http_received_ms;
             doc["t_cmd_set_ms"] = sharedData.t_cmd_set_ms;
             doc["t_ctrl_apply_ms"] = sharedData.t_ctrl_apply_ms;
+            doc["mode_latency_ms"] = sharedData.mode_latency_ms;
+            doc["mode_latency_ms"] = sharedData.mode_latency_ms;
             String out; serializeJson(doc, out);
             webSocket.broadcastTXT(out);
         }
 
-        // Yield to other tasks
-        vTaskDelay(1 / portTICK_PERIOD_MS);
+        // Small sleep to let IDLE0 run and feed WDT; prevents starvation
+        vTaskDelay(1);
     }
 }
 
@@ -664,6 +671,8 @@ static void HTTPTask(void *parameter)
             doc["force"] = sharedData.force;
             doc["position"] = sharedData.position;
             doc["velocity"] = sharedData.velocity;
+            doc["voltage"] = sharedStateData.voltage;
+            doc["current"] = sharedStateData.current;
             doc["virtual_velocity"] = sharedData.virtual_velocity;
             doc["status"] = sharedData.status;
             doc["t_http_received_ms"] = sharedData.t_http_received_ms;

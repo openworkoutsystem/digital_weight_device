@@ -1,0 +1,6 @@
+# Ignore legacy examples tree; keep new apps/ows only
+examples/**
+
+# Keep only our app under apps
+apps/**
+!apps/ows/**

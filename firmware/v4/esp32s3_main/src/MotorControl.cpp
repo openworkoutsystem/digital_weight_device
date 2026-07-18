@@ -20,7 +20,7 @@ void initMotorControl()
         "MotorControlTask", // Name of the task
         10000,              // Stack size in words
         NULL,               // Task input parameter
-        2,                  // Priority of the task (increased for lower latency)
+        2,                  // Priority of the task (equal to WS for round-robin)
         NULL,               // Task handle
         0);                 // Core where the task should run
 }
@@ -29,6 +29,7 @@ void MotorControlTask(void *parameter)
 {
     int counter = 0;
     int lastID = 0;
+    static uint8_t lastAppliedMode = 255; // Track last mode to avoid redundant CAN sends
 
     struct timeval tv_now;
     gettimeofday(&tv_now, NULL);
@@ -65,6 +66,7 @@ void MotorControlTask(void *parameter)
     float m2_velocity = -20;
 
     float row_force_strength = 0;
+    static bool modesConfigured = false; // Configure controller/input modes once
 
     // a 5x10 matrix to store the torque values for m1 and m2 for each range of strength mode. 5 rows and 10 columns
     // header are force, velocity_delta, -M1_Fn, -M1_Fm, M1_Fn, M1_Fm, -M2_Fn, -M2_Fm, M2_Fn, M2_Fm
@@ -90,35 +92,112 @@ void MotorControlTask(void *parameter)
     {
         gettimeofday(&tv_now, NULL);
         time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
-        if (time_us - prev_time_us < runInterval_us)
+        int64_t elapsed_us = time_us - prev_time_us;
+        if (elapsed_us < runInterval_us)
         {
+            // Yield to avoid spin-wait starvation; sleep fractional ms if possible
+            int64_t remaining_us = runInterval_us - elapsed_us;
+            if (remaining_us > 1000) {
+                vTaskDelay(pdMS_TO_TICKS(1)); // yield ~1ms
+            } else {
+                taskYIELD(); // yield immediately for sub-ms waits
+            }
             continue;
         }
         prev_time_us = time_us;
+
+        // Drain command queue from WS/HTTP without blocking (before timing gate)
+        // Coalesce to the latest requested state to avoid rapid back-to-back toggles causing traffic bursts
+        CommandMsg msg;
+        CommandType desiredType = CMD_NONE;
+        float desiredWeightKg = 0.0f;
+        unsigned long desiredCmdMs = 0;
+        while (g_cmdQueue && xQueueReceive(g_cmdQueue, &msg, 0) == pdTRUE) {
+            desiredType = msg.type;
+            desiredWeightKg = msg.weight_kg;
+            desiredCmdMs = millis();
+        }
+        if (desiredType != CMD_NONE) {
+            if (xSemaphoreTake(mutex, 0) == pdTRUE) {
+                if (desiredType == CMD_STRENGTH) {
+                    sharedCfgData.target_force = desiredWeightKg * 9.81f;
+                    if (controlState.mode != 1) {
+                        controlState.mode = 1;
+                        pendingApplyStrength = true;
+                    }
+                } else if (desiredType == CMD_IDLE) {
+                    if (controlState.mode != 0) {
+                        controlState.mode = 0;
+                        pendingApplyIdle = true;
+                    }
+                }
+                xSemaphoreGive(mutex);
+            }
+            sharedData.t_cmd_set_ms = desiredCmdMs;
+        }
 
         // Handle any pending mode changes requested by other threads (e.g., WiFi) here
         // to centralize CAN traffic and avoid cross-task contention.
         if (xSemaphoreTake(mutex, 0) == pdTRUE)
         {
-            if (pendingApplyStrength)
+            if (pendingApplyStrength && lastAppliedMode != 1)
             {
                 uint32_t velocity_control_mode = 0x00000002;
                 uint32_t passthrough_input_mode = 0x00000001;
                 uint32_t closed_loop_mode = 0x00000008;
-                sendMotorMode(CAN_NODEID_M1, velocity_control_mode, passthrough_input_mode, closed_loop_mode);
-                sendMotorMode(CAN_NODEID_M2, velocity_control_mode, passthrough_input_mode, closed_loop_mode);
+                if (!modesConfigured) {
+                    // First time entering strength: configure controller/input modes
+                    sendMotorMode(CAN_NODEID_M1, velocity_control_mode, passthrough_input_mode, closed_loop_mode);
+                    sendMotorMode(CAN_NODEID_M2, velocity_control_mode, passthrough_input_mode, closed_loop_mode);
+                    modesConfigured = true;
+                } else {
+                    // Modes already configured: only command axis state to closed loop
+                    twai_message_t msg1 = createCANMessage(CAN_NODEID_M1, SET_AXIS_STATE, 4);
+                    memcpy(&msg1.data[0], &closed_loop_mode, sizeof(uint32_t));
+                    transmitCANMessage(msg1);
+                    twai_message_t msg2 = createCANMessage(CAN_NODEID_M2, SET_AXIS_STATE, 4);
+                    memcpy(&msg2.data[0], &closed_loop_mode, sizeof(uint32_t));
+                    transmitCANMessage(msg2);
+                }
+                lastAppliedMode = 1;
                 pendingApplyStrength = false;
-                sharedData.t_ctrl_apply_ms = millis();
+                unsigned long applyMs = millis();
+                sharedData.t_ctrl_apply_ms = applyMs;
+                sharedData.mode_latency_ms = applyMs - sharedData.t_cmd_set_ms;
             }
-            if (pendingApplyIdle)
+            else if (pendingApplyStrength)
+            {
+                // Already in strength mode, just clear flag
+                pendingApplyStrength = false;
+                unsigned long applyMs = millis();
+                sharedData.t_ctrl_apply_ms = applyMs;
+                sharedData.mode_latency_ms = applyMs - sharedData.t_cmd_set_ms;
+            }
+            if (pendingApplyIdle && lastAppliedMode != 0)
             {
                 uint32_t velocity_control_mode = 0x00000002;
                 uint32_t passthrough_input_mode = 0x00000001;
                 uint32_t idle_mode = 0x00000001;
-                sendMotorMode(CAN_NODEID_M1, velocity_control_mode, passthrough_input_mode, idle_mode);
-                sendMotorMode(CAN_NODEID_M2, velocity_control_mode, passthrough_input_mode, idle_mode);
+                // Only command axis idle; controller/input modes remain configured
+                twai_message_t msg1 = createCANMessage(CAN_NODEID_M1, SET_AXIS_STATE, 4);
+                memcpy(&msg1.data[0], &idle_mode, sizeof(uint32_t));
+                transmitCANMessage(msg1);
+                twai_message_t msg2 = createCANMessage(CAN_NODEID_M2, SET_AXIS_STATE, 4);
+                memcpy(&msg2.data[0], &idle_mode, sizeof(uint32_t));
+                transmitCANMessage(msg2);
+                lastAppliedMode = 0;
                 pendingApplyIdle = false;
-                sharedData.t_ctrl_apply_ms = millis();
+                unsigned long applyMs = millis();
+                sharedData.t_ctrl_apply_ms = applyMs;
+                sharedData.mode_latency_ms = applyMs - sharedData.t_cmd_set_ms;
+            }
+            else if (pendingApplyIdle)
+            {
+                // Already in idle mode, just clear flag
+                pendingApplyIdle = false;
+                unsigned long applyMs = millis();
+                sharedData.t_ctrl_apply_ms = applyMs;
+                sharedData.mode_latency_ms = applyMs - sharedData.t_cmd_set_ms;
             }
             xSemaphoreGive(mutex);
         }
@@ -281,7 +360,8 @@ void MotorControlTask(void *parameter)
             }
         }
 
-        vTaskDelay(1 / portTICK_PERIOD_MS);
+        // Minimal yield at end of cycle; main yield is in timing loop above
+        taskYIELD();
     }
 }
 

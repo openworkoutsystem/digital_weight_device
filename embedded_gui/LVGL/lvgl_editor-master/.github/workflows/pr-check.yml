@@ -1,0 +1,37 @@
+name: Pull Request Check
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+jobs:
+  pr-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.0"
+
+      - name: Remove Generated Files
+        run: find examples -path examples/images -prune -o -type f \( -name '*.c' -o -name '*.h' \) -print | xargs rm -f
+
+      - name: Download CLI
+        run: curl -L https://github.com/lvgl/lvgl_editor/releases/download/v.0.3.0/LVGL_CLI-0.3.0-linux-mac.zip -o lvgl-cli.zip
+
+      - name: Unzip CLI
+        run: unzip lvgl-cli.zip -d lvgl-cli
+
+      - name: Generate Code
+        run: |
+          node ./lvgl-cli/lved-cli.js generate examples -ss
+
+      - name: Compile Code
+        run: |
+          node ./lvgl-cli/lved-cli.js compile examples --target node
+
+      - name: Run tests
+        run: |
+          node ./lvgl-cli/lved-cli.js run-all-tests examples

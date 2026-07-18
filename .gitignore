@@ -1,2 +1,12 @@
+# Build artifacts (per-project .gitignores also cover their own .pio)
+.pio/
+__pycache__/
+*.pyc
 
-# Nothing here yet
+# WiFi credentials — real values live in each project's include/secrets.h,
+# created by copying secrets.h.example. Never commit the real file.
+secrets.h
+
+# OS noise
+.DS_Store
+Thumbs.db

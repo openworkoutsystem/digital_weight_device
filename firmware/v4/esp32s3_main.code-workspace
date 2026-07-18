@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "esp32s3_main"
+		},
+		{
+			"path": "esp32s3_lillygo_amoled"
+		},
+		{
+			"path": "../../../../web/app-openworkoutsystem"
+		}
+	],
+    "settings": {
+        "files.associations": {
+            "system_error": "cpp"
+        }
+    }
+}

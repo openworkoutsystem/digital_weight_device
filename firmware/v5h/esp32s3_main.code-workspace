@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "esp32c5_seed_studio_main"
+		},
+		{
+			"path": "esp32s3_main"
+		},
+		{
+			"path": "esp32s3_lillygo_amoled"
+		},
+		{
+			"path": "../../../../web/app-openworkoutsystem"
+		}
+	],
+    "settings": {
+        "files.associations": {
+            "system_error": "cpp"
+        }
+    }
+}

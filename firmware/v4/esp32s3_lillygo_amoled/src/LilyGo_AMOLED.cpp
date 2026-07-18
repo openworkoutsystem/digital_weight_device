@@ -10,6 +10,7 @@
 #include "LilyGo_AMOLED.h"
 #include <esp_adc_cal.h>
 #include <driver/gpio.h>
+#include "logo.h"
 
 #define SEND_BUF_SIZE           (16384)
 #define TFT_SPI_MODE            SPI_MODE0
@@ -1005,16 +1006,11 @@ void LilyGo_AMOLED::finalizeInitSequenceTask()
 
 void LilyGo_AMOLED::drawQuickSplash()
 {
-    // Draw a tiny bright square near the center to make the panel visibly "on"
-    const uint16_t w = 32;
-    const uint16_t h = 32;
     uint16_t cx = width() / 2;
     uint16_t cy = height() / 2;
-    uint16_t x = (cx > w/2) ? (cx - w/2) : 0;
-    uint16_t y = (cy > h/2) ? (cy - h/2) : 0;
-    static uint16_t block[w * h];
-    for (uint32_t i = 0; i < w * h; ++i) block[i] = 0xFFFF; // white
-    pushColors(x, y, w, h, block);
+    uint16_t x = (cx > LOGO_WIDTH/2) ? (cx - LOGO_WIDTH/2) : 0;
+    uint16_t y = (cy > LOGO_HEIGHT/2) ? (cy - LOGO_HEIGHT/2) : 0;
+    pushColors(x, y, LOGO_WIDTH, LOGO_HEIGHT, (uint16_t*)logo);
 }
 
 void LilyGo_AMOLED::tuneResetDelays(uint16_t high1Ms, uint16_t lowMs, uint16_t high2Ms)

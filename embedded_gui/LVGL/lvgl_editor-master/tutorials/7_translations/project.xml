@@ -1,0 +1,7 @@
+<project name="ui_translations">
+	<targets>
+		<target name="target1">
+			<display width="480" height="240" />
+		</target>
+	</targets>
+</project>

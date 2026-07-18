@@ -1,0 +1,4 @@
+.DS_Store
+***/*project_local.xml
+**/*.log
+**/preview-build/

@@ -45,10 +45,15 @@ twai_message_t createCANMessage(uint16_t nodeID, CANCommandID commandID, uint8_t
 
 bool transmitCANMessage(twai_message_t &message)
 {
-    // Use a short timeout to avoid long stalls even within the control task.
-    if (twai_transmit(&message, pdMS_TO_TICKS(10)) != ESP_OK)
+    // Cap blocking to ~3ms; if queue full, drop and log once per second.
+    static unsigned long lastLogMs = 0;
+    if (twai_transmit(&message, pdMS_TO_TICKS(3)) != ESP_OK)
     {
-        handleError(ERROR_CAN_TRANSMIT, "Failed to transmit CAN message");
+        unsigned long now = millis();
+        if (now - lastLogMs > 1000) {
+            handleError(ERROR_CAN_TRANSMIT, "CAN TX timeout/drop (queue congested)");
+            lastLogMs = now;
+        }
         return false;
     }
     return true;
