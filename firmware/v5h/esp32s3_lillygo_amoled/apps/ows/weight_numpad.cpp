@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "weight_numpad.h"
+#include "ui_input_gate.h"
 
 // Gold accent matching the OWS logo
 #define NUMPAD_ACCENT_HEX 0xD4A017
@@ -49,6 +50,9 @@ static void closeNumpad(void)
         lv_obj_del(overlay);
         overlay = NULL;
         valueLabel = NULL;
+        // The screen behind is now exposed under the finger — on the
+        // strength screen that includes the ZERO WEIGHT zone. Debounce.
+        ui_input_gate_block(UI_INPUT_GATE_MODAL_MS);
     }
 }
 
@@ -199,4 +203,8 @@ void weight_numpad_open_ex(const char *captionText, const char *unitText,
     lv_obj_add_event_cb(btnm, btnmDrawPart, LV_EVENT_DRAW_PART_BEGIN, NULL);
 
     refreshReadout();
+
+    // The keypad appears under the finger that opened it — debounce so a
+    // quick second tap can't immediately punch a digit.
+    ui_input_gate_block(UI_INPUT_GATE_MODAL_MS);
 }

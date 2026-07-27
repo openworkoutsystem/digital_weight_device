@@ -24,6 +24,7 @@ drivetrain **1 N·m ≈ 5 lbf at the handle** and a full stroke ≈ 5 revs.
 | `recoil_vel` | 8 | (0..50] | 0 lb stow speed, rev/s (slows to ~2 near the dock automatically) |
 | `zone` | 1.0 | (0..10] | dock zone (revs): force tapers + speed drops inside it |
 | `sleep_s` | 10 | (0..3600] | parked-and-still seconds before the axis sleeps |
+| `sleep_zone` | 0.15 | (0..2] | revs from home within which sleep is ALLOWED (docked = nobody holding); a still hold beyond it never sleeps |
 | `wake_d` | 0.25 | (0..1] | revs of strap movement that wake from sleep |
 | `soft_max` | 0.5 | [0..2] | legacy ODrive push-out bound — **inert on moteus**, kept for compat |
 | `con_pct` | 0 | [0..100] | concentric-only unloading: % of force removed when not actively pulling out (also settable from the strength screen's CON label) |

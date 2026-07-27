@@ -205,6 +205,13 @@ static float g_softMaxNm = 0.5f;       // retained knob: the old ODrive push-out
                                        // bound; no moteus per-command equivalent
                                        // (see transport notes above)
 static float g_sleepTimeoutMs = 10000.0f;
+static float g_sleepZone = 0.15f;      // revs from home within which sleep is
+                                       // ALLOWED — strap essentially docked.
+                                       // Deliberately much tighter than
+                                       // g_homeZone: at Open Sauce (2026-07)
+                                       // the machine slept in people's hands
+                                       // because a still hold inside the
+                                       // 1-rev taper zone counted as parked.
 static float g_wakeThresh = 0.25f;     // revs of movement that wake from sleep
                                        // (scaled to the ~5-rev stroke; 0.05
                                        // woke on vibration)
@@ -214,6 +221,11 @@ static unsigned long g_stillSinceMs = 0;
 static float g_stillAnchorPos = 0.0f;  // stillness reference position
 static float g_sleepPos = 0.0f;        // position captured at sleep entry
 static float g_effectiveTq = 0.0f;     // state-aware torque actually rendered
+
+void setSleepZone(float revs)
+{
+    if (revs > 0.0f && revs <= 2.0f) g_sleepZone = revs;
+}
 
 void setHomeBehavior(float zone, float recoilTq, float recoilVel,
                      float softMax, float sleepS, float wakeThresh)
@@ -785,14 +797,14 @@ static void processMoteusFeedback(float position, float velocity)
         g_stillAnchorPos = pullPosNow;
         g_stillSinceMs = millis();
     }
-    else if (dHome < g_homeZone && millis() >= g_testTorqueUntilMs &&
+    else if (dHome < g_sleepZone && millis() >= g_testTorqueUntilMs &&
              millis() - g_stillSinceMs > (unsigned long)g_sleepTimeoutMs)
     {
-        // Parked inside the home zone and still: stop the
-        // axis to save power. Never sleeps mid-stroke — a
-        // static hold under load is outside the zone by
-        // definition, and holding still there just keeps
-        // the timer running without ever passing this gate.
+        // Docked (within g_sleepZone of home) and still: stop
+        // the axis to save power. The tight zone is the "nobody
+        // is holding this" test — a still hold anywhere past it
+        // keeps the machine awake indefinitely. (The taper zone
+        // g_homeZone is NOT the sleep gate; see g_sleepZone.)
         g_machineState = MS_SLEEP;
         g_sleepPos = pullPosNow;
         g_stillSinceMs = millis();

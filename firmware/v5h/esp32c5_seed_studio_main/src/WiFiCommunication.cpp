@@ -147,6 +147,7 @@ static void applyCalCommand(JsonDocument &doc)
         doc.containsKey("soft_max") ? (float)doc["soft_max"] : -1.0f,
         doc.containsKey("sleep_s") ? (float)doc["sleep_s"] : -1.0f,
         doc.containsKey("wake_d") ? (float)doc["wake_d"] : -1.0f);
+    if (doc.containsKey("sleep_zone")) setSleepZone((float)doc["sleep_zone"]);
     setDropCatch(
         doc.containsKey("drop_vmin") ? (float)doc["drop_vmin"] : -1.0f,
         doc.containsKey("drop_vmax") ? (float)doc["drop_vmax"] : -1.0f,

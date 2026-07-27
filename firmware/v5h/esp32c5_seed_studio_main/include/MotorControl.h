@@ -54,6 +54,10 @@ void setDriveParams(float reelInVel, float velLimit);
 // wakeThresh: strap movement (revs) that wakes the axis from sleep
 void setHomeBehavior(float zone, float recoilTq, float recoilVel,
                      float softMax, float sleepS, float wakeThresh);
+// Sleep eligibility distance (revs from home): the axis may only auto-sleep
+// with the strap inside this — i.e. docked, nobody holding it. Much tighter
+// than the force-taper zone on purpose.
+void setSleepZone(float revs);
 // Drop-catch (anti-runaway) tuning (negative = leave unchanged):
 // vMin/vMax: reel-in rev/s where force shedding starts / hits the floor
 // restoreDist: revs of outward travel to fully restore the shed force

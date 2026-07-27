@@ -13,6 +13,7 @@
 #include <LV_Helper.h>
 #include <Wire.h>
 #include "weight_numpad.h"
+#include "ui_input_gate.h"
 
 // Explicit prototypes (keeps the Arduino .ino preprocessor honest)
 void weightValueClicked(lv_event_t *e);
@@ -374,6 +375,14 @@ void setup(void)
     lv_obj_set_y(ui_IpLabel, -70);
     lv_label_set_text(ui_IpLabel, "no wifi");
 
+    // Touch debounce: after any screen change, ignore touches briefly so
+    // the tap that navigated cannot bleed through onto whatever lands
+    // under the finger on the next screen (Open Sauce demo feedback).
+    ui_input_gate_attach_screen(ui_MainScreen);
+    ui_input_gate_attach_screen(ui_StrengthScreen);
+    ui_input_gate_attach_screen(ui_RowScreen);
+    ui_input_gate_attach_screen(ui_SystemScreen);
+
     // Create UI event queue (route all UI updates via main loop)
     uiEventQueue = xQueueCreate(16, sizeof(UiEvent));
     // Create mutex for I2C bus 1 shared with the main MCU
@@ -481,6 +490,7 @@ void loop()
             bootBrightnessMs = millis() + 15;
         }
     }
+    ui_input_gate_tick(); // restore touch when a debounce window expires
     lv_task_handler();
     delay(5);
 }
@@ -707,6 +717,7 @@ void dispatchRotaryEvent(uint32_t value)
 void weightValueClicked(lv_event_t *e)
 {
     (void)e;
+    if (ui_input_gate_blocked()) return;
     weight_numpad_open(currentWeight, WEIGHT_MIN, WEIGHT_MAX, numpadWeightConfirmed);
 }
 
@@ -746,6 +757,7 @@ void sendWeightCommand(int32_t value)
 void concentricValueClicked(lv_event_t *e)
 {
     (void)e;
+    if (ui_input_gate_blocked()) return;
     weight_numpad_open_ex("CONCENTRIC %", "%", currentConcentric, 0, 100, numpadConcentricConfirmed);
 }
 
@@ -807,6 +819,9 @@ void zeroZonePressed(lv_event_t *e)
     // Fires on PRESS (touch-down), not release — an emergency control
     // shouldn't wait for the finger to lift. Full command path: display,
     // ack/retry, cancels any pending increase, main board goes to recoil.
+    // Gated: this sits where the LIFT button was on the previous screen,
+    // so it is the most likely victim of a tap bleeding through.
+    if (ui_input_gate_blocked()) return;
     handleMainScreenEvent(0);
 }
 
@@ -876,12 +891,14 @@ void rowScreenEvent(lv_event_t *e)
 void gearValueClicked(lv_event_t *e)
 {
     (void)e;
+    if (ui_input_gate_blocked()) return;
     weight_numpad_open_ex("SET GEAR", "", currentGear, 1, 10, numpadGearConfirmed);
 }
 
 void dragValueClicked(lv_event_t *e)
 {
     (void)e;
+    if (ui_input_gate_blocked()) return;
     weight_numpad_open_ex("SET DRAG", "", currentDrag, 1, 10, numpadDragConfirmed);
 }
 
